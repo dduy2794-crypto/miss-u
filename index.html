@@ -3,236 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glowing Blue Particle Heart</title>
+    <title>Perfect Glowing Particle Heart</title>
     <style>
-        /* Đặt lại lề và đảm bảo khung nền đen chiếm toàn bộ màn hình */
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: #000; /* Nền đen */
-            overflow: hidden;       /* Ẩn thanh cuộn */
+            background-color: #00040a; /* Nền đen pha xanh dương rất tối */
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* Canvas chiếm toàn bộ màn hình */
         canvas {
             display: block;
+        }
+
+        /* Dòng chữ hướng dẫn nhỏ ở góc màn hình */
+        #hint {
+            position: absolute;
+            bottom: 20px;
+            color: rgba(0, 242, 254, 0.5); /* Đổi sang màu xanh */
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            pointer-events: none;
+            user-select: none;
         }
     </style>
 </head>
 <body>
 
     <canvas id="heartCanvas"></canvas>
+    <div id="hint">Di chuột qua trái tim để tương tác</div>
 
     <script>
         const canvas = document.getElementById('heartCanvas');
         const ctx = canvas.getContext('2d');
 
-        let width, height, centerX, centerY;
-        let baseScale = 1; // Tỷ lệ thu phóng của trái tim dựa trên màn hình
+        let width, height, centerX, centerY, baseScale;
 
-        // Hàm thay đổi kích thước canvas cho vừa màn hình
+        // Bảng màu xanh dương neon cho trái tim 3D
+        const colors = [
+            '#00f2fe', 
+            '#4facfe', 
+            '#00aaff', 
+            '#00ffff', 
+            '#80d4ff',
+            '#b3e6ff'
+        ];
+
+        // Hàm tính toán kích thước canvas
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             centerX = width / 2;
             centerY = height / 2;
-            // Tính toán tỷ lệ cơ bản sao cho trái tim vừa với màn hình nhỏ nhất
-            baseScale = Math.min(width, height) / 45; 
+            baseScale = Math.min(width, height) * 0.22; // Tỉ lệ cho thể tích 3D
         }
 
         window.addEventListener('resize', resize);
         resize();
 
-        // Mảng màu xanh neon để tạo hiệu ứng
-        const colors = [
-            'rgba(0, 191, 255, 1)',   // DeepSkyBlue
-            'rgba(0, 255, 255, 1)',   // Cyan
-            'rgba(30, 144, 255, 1)',  // DodgerBlue
-            'rgba(135, 206, 250, 1)'  // LightSkyBlue
-        ];
+        // Tọa độ chuột
+        const mouse = { x: -1000, y: -1000, radius: 150 };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = -1000;
+            mouse.y = -1000;
+        });
+        window.addEventListener('touchmove', (e) => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+        });
+        window.addEventListener('touchend', () => {
+            mouse.x = -1000;
+            mouse.y = -1000;
+        });
 
-        // Hàm toán học vẽ hình trái tim
-        // Tham số t: góc (từ 0 đến 2PI)
-        function getHeartPoint(t) {
-            // Công thức chuẩn của đường cong trái tim
-            let x = 16 * Math.pow(Math.sin(t), 3);
-            let y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-            return { x, y };
-        }
-
-        // Lớp Hạt cấu tạo nên trái tim
-        class HeartParticle {
+        // Lớp đối tượng Hạt (Particle 3D)
+        class Particle {
             constructor() {
-                this.reset();
-                // Khi mới bắt đầu, hạt xuất hiện ngẫu nhiên khắp màn hình để bay vào
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-            }
-
-            reset() {
-                // Vị trí ngẫu nhiên trên đường cong trái tim (góc t)
-                this.t = Math.random() * Math.PI * 2;
+                let x, y, z;
+                // Thuật toán Rejection Sampling: Tìm các điểm nằm BÊN TRONG thể tích trái tim 3D
+                // Phương trình: (x^2 + 2.25y^2 + z^2 - 1)^3 - x^2*z^3 - 0.1125*y^2*z^3 <= 0
+                while (true) {
+                    x = (Math.random() - 0.5) * 3; // Trục X ngang
+                    y = (Math.random() - 0.5) * 3; // Trục Y chiều sâu
+                    z = (Math.random() - 0.5) * 3; // Trục Z dọc
+                    
+                    let a = x*x + 2.25*y*y + z*z - 1;
+                    let val = a*a*a - x*x*z*z*z - 0.1125*y*y*z*z*z;
+                    if (val <= 0) {
+                        this.baseX = x;
+                        this.baseY = y; 
+                        this.baseZ = z;
+                        break;
+                    }
+                }
                 
-                // Độ phân tán: để trái tim không chỉ là đường viền mà có cả hạt bên trong
-                // Dùng căn bậc hai để các hạt tập trung nhiều ở viền hơn
-                this.scatter = Math.sqrt(Math.random()) * 0.8 + 0.2; 
+                // Vị trí khởi tạo 3D (Bắt đầu phân tán rộng)
+                this.x = (Math.random() - 0.5) * width;
+                this.y = (Math.random() - 0.5) * height;
+                this.z = (Math.random() - 0.5) * 1000;
                 
-                this.size = Math.random() * 1.5 + 0.5;
-                this.color = colors[Math.floor(Math.random() * colors.length)];
-                
-                // Vận tốc
+                // Vận tốc 3D
                 this.vx = 0;
                 this.vy = 0;
+                this.vz = 0;
+                
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.size = Math.random() * 1.8 + 0.5; 
             }
 
             update(beatScale) {
-                // 1. Tính toán vị trí đích của hạt trên hình trái tim tại thời điểm hiện tại
-                const point = getHeartPoint(this.t);
+                const time = Date.now() * 0.0006;
+                const rotAngle = time; // Góc xoay tự động quanh trục Y (trục dọc)
+
+                // Tính toán tọa độ 3D sau khi xoay (Rotated Base Coordinates)
+                const rx = this.baseX * Math.cos(rotAngle) - this.baseY * Math.sin(rotAngle);
+                const rDepth = this.baseX * Math.sin(rotAngle) + this.baseY * Math.cos(rotAngle);
+                const rVert = this.baseZ;
+
+                // Áp dụng scale và nhịp đập
+                const scale = baseScale * beatScale; 
+                const targetX = rx * scale;
+                const targetY = -rVert * scale; // Âm rVert vì màn hình Canvas Y hướng xuống dưới
+                const targetZ = rDepth * scale;
+
+                // Tương tác chuột (đẩy hạt trong không gian dựa trên chiếu 2D tạm thời)
+                const fov = 800;
+                const tempProjScale = fov / (fov + this.z);
+                const screenX = centerX + this.x * tempProjScale;
+                const screenY = centerY + this.y * tempProjScale;
+
+                const dxMouse = screenX - mouse.x;
+                const dyMouse = screenY - mouse.y;
+                const distanceToMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
                 
-                // Áp dụng độ phân tán, tỷ lệ màn hình và nhịp đập
-                let targetX = centerX + point.x * baseScale * beatScale * this.scatter;
-                let targetY = centerY + point.y * baseScale * beatScale * this.scatter;
+                if (distanceToMouse < mouse.radius) {
+                    const force = (mouse.radius - distanceToMouse) / mouse.radius;
+                    // Đẩy ra theo không gian 3D
+                    this.vx += (dxMouse / distanceToMouse) * force * 5;
+                    this.vy += (dyMouse / distanceToMouse) * force * 5;
+                    this.vz += (Math.random() - 0.5) * force * 15; // Phân tán chiều sâu
+                }
 
-                // Thêm chút nhiễu động (noise) để trái tim trông tự nhiên và rung động
-                targetX += (Math.random() - 0.5) * 3;
-                targetY += (Math.random() - 0.5) * 3;
+                // Vật lý lò xo 3D: Kéo hạt về hình thái trái tim
+                this.vx += (targetX - this.x) * 0.035;
+                this.vy += (targetY - this.y) * 0.035;
+                this.vz += (targetZ - this.z) * 0.035;
 
-                // 2. Di chuyển hạt về vị trí đích (Hiệu ứng lò xo / Spring easing)
-                const dx = targetX - this.x;
-                const dy = targetY - this.y;
-
-                // Cập nhật vận tốc
-                this.vx += dx * 0.03;
-                this.vy += dy * 0.03;
-
-                // Lực cản để hạt không dao động quá mạnh
-                this.vx *= 0.85;
-                this.vy *= 0.85;
+                // Ma sát
+                this.vx *= 0.83; 
+                this.vy *= 0.83;
+                this.vz *= 0.83;
 
                 // Cập nhật vị trí
                 this.x += this.vx;
                 this.y += this.vy;
-
-                // Tỉ lệ sinh ra các hạt văng ra (sparks) phụ thuộc vào nhịp đập
-                if (Math.random() < 0.01 * beatScale) {
-                    sparks.push(new SparkParticle(this.x, this.y, this.color));
-                }
+                this.z += this.vz;
             }
 
             draw() {
-                // Vẽ hạt sáng rõ ở giữa
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
+                // Chiếu phối cảnh (Perspective Projection)
+                const fov = 800;
+                const zDepth = fov + this.z;
+                
+                // Ẩn các hạt nằm quá xa sau camera
+                if (zDepth <= 0) return; 
 
-                // Vẽ quầng sáng (glow) mờ hơn xung quanh hạt
-                ctx.fillStyle = this.color.replace('1)', '0.2)'); // Giảm alpha xuống 0.2
+                const projScale = fov / zDepth;
+                const projX = centerX + this.x * projScale;
+                const projY = centerY + this.y * projScale;
+                
+                const r = this.size * projScale;
+                if (r < 0.1) return;
+
+                // Tính toán độ mờ: Càng xa (z lớn) càng mờ để tạo cảm giác chiều sâu 3D
+                const opacity = Math.min(1, Math.max(0.05, 1 - (this.z / 350)));
+
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size * 3.5, 0, Math.PI * 2);
+                ctx.arc(projX, projY, r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = opacity;
                 ctx.fill();
+                
+                // Khôi phục Alpha để không ảnh hưởng frame làm mờ
+                ctx.globalAlpha = 1.0;
             }
         }
 
-        // Lớp Hạt tia lửa văng ra khi trái tim đập
-        class SparkParticle {
-            constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                this.size = Math.random() * 1.5;
-                
-                // Bắn ra theo hướng ngẫu nhiên
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 3 + 1;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                
-                this.life = 1; // Thời gian sống
-                this.decay = Math.random() * 0.02 + 0.01; // Tốc độ mờ dần
-            }
-
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.life -= this.decay;
-            }
-
-            draw() {
-                if (this.life <= 0) return;
-                
-                // Đặt độ trong suốt theo thời gian sống còn lại
-                ctx.globalAlpha = this.life;
-                ctx.fillStyle = this.color;
-                
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.globalAlpha = 1; // Đặt lại alpha cho các hình vẽ khác
-            }
-        }
-
-        // Khởi tạo các mảng chứa hạt
+        // Tạo quần thể 5000 hạt lấp đầy thể tích 3D
         const particles = [];
-        const sparks = [];
-        const particleCount = 1500; // Số lượng hạt, tăng lên nếu muốn đặc hơn
-
+        const particleCount = 5000;
         for (let i = 0; i < particleCount; i++) {
-            particles.push(new HeartParticle());
+            particles.push(new Particle());
+        }
+
+        // Tính nhịp đập
+        function getBeatScale() {
+            const time = Date.now() / 1000;
+            const phase = (time * 1.3) % (Math.PI * 2); 
+            if (phase < 0.3) {
+                return 1 + 0.12 * Math.sin(phase * Math.PI / 0.3);
+            } else if (phase > 0.5 && phase < 0.8) {
+                return 1 + 0.06 * Math.sin((phase - 0.5) * Math.PI / 0.3);
+            }
+            return 1;
         }
 
         // Vòng lặp hoạt ảnh
         function animate() {
-            // Tạo hiệu ứng đuôi mờ (trail) bằng cách phủ một lớp bán trong suốt
-            // thay vì xóa sạch toàn bộ màn hình
+            // Xóa mờ bằng nền đen pha xanh tối
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillStyle = 'rgba(0, 4, 10, 0.25)'; 
             ctx.fillRect(0, 0, width, height);
 
-            // Bật chế độ trộn màu 'lighter' để các hạt màu xanh chồng lên nhau phát sáng chói hơn (neon effect)
+            // Chế độ trộn màu Lighter tạo sự phát sáng khi các khối hạt 3D xếp chồng
             ctx.globalCompositeOperation = 'lighter';
 
-            // Tính toán nhịp tim (Heartbeat logic)
-            // Nhịp tim thật thường có 2 nhịp đập nhanh (lub-dub) rồi nghỉ
-            const time = Date.now() / 1000;
-            let beatScale = 1;
-            const phase = (time * 1.2) % (Math.PI * 2); // Tốc độ nhịp tim
+            const beatScale = getBeatScale();
 
-            if (phase < 0.4) {
-                // Nhịp 1
-                beatScale = 1 + 0.15 * Math.sin(phase * Math.PI / 0.4);
-            } else if (phase > 0.6 && phase < 1.0) {
-                // Nhịp 2
-                beatScale = 1 + 0.08 * Math.sin((phase - 0.6) * Math.PI / 0.4);
-            }
-
-            // Cập nhật và vẽ các hạt chính của trái tim
             for (let i = 0; i < particles.length; i++) {
                 particles[i].update(beatScale);
                 particles[i].draw();
             }
 
-            // Cập nhật và vẽ các tia lửa (sparks) văng ra, xóa đi nếu đã hết "đời sống"
-            for (let i = sparks.length - 1; i >= 0; i--) {
-                sparks[i].update();
-                sparks[i].draw();
-                if (sparks[i].life <= 0) {
-                    sparks.splice(i, 1);
-                }
-            }
-
             requestAnimationFrame(animate);
         }
 
-        // Bắt đầu hoạt ảnh
         animate();
-
     </script>
 </body>
 </html>
