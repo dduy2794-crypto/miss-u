@@ -60,7 +60,7 @@
             height = canvas.height = window.innerHeight;
             centerX = width / 2;
             centerY = height / 2;
-            baseScale = Math.min(width, height) * 0.22; // Tỉ lệ cho thể tích 3D
+            baseScale = Math.min(width, height) * 0.35; // Tăng tỉ lệ kích thước (Từ 0.22 lên 0.35)
         }
 
         window.addEventListener('resize', resize);
@@ -121,7 +121,7 @@
             }
 
             update(beatScale) {
-                const time = Date.now() * 0.0006;
+                const time = Date.now() * 0.0003; // Giảm một nửa tốc độ xoay tổng thể (từ 0.0006 xuống 0.0003)
                 const rotAngle = time; // Góc xoay tự động quanh trục Y (trục dọc)
 
                 // Tính toán tọa độ 3D sau khi xoay (Rotated Base Coordinates)
@@ -154,14 +154,14 @@
                 }
 
                 // Vật lý lò xo 3D: Kéo hạt về hình thái trái tim
-                this.vx += (targetX - this.x) * 0.035;
-                this.vy += (targetY - this.y) * 0.035;
-                this.vz += (targetZ - this.z) * 0.035;
+                this.vx += (targetX - this.x) * 0.01; // Giảm lực hút lò xo để các hạt tụ lại chậm hơn (từ 0.035 xuống 0.01)
+                this.vy += (targetY - this.y) * 0.01;
+                this.vz += (targetZ - this.z) * 0.01;
 
                 // Ma sát
-                this.vx *= 0.83; 
-                this.vy *= 0.83;
-                this.vz *= 0.83;
+                this.vx *= 0.88; // Điều chỉnh ma sát để chuyển động trôi mượt và lơ lửng hơn
+                this.vy *= 0.88;
+                this.vz *= 0.88;
 
                 // Cập nhật vị trí
                 this.x += this.vx;
